@@ -133,6 +133,7 @@ body{background:#000;overflow:hidden;font-family:'Courier New',monospace}
     <div class="set-row"><span class="set-key">Ravine</span><span class="set-val">Centre strip — Brine through Silence mobs</span></div>
     <div class="set-row"><span class="set-key">Volcano</span><span class="set-val">Top-right — chip dmg, Echo/Pearl/Super mobs</span></div>
     <br><button class="set-btn" onclick="cam.z=1">Reset Zoom</button><button class="set-btn" onclick="toggleSettings()">Close</button>
+    <br><br><button class="set-btn" style="color:#ff6644;border-color:#cc3322" onclick="if(confirm('Delete all saved progress?'))deleteSave()">Delete Save</button>
   </div>
 </div>
 <script>
@@ -141,11 +142,11 @@ const RAVINE={x:CX-480,y:0,w:960,h:WS};
 const VOLCANO={cx:WS*.75,cy:WS*.25,r:650};
 const RARS=['Foam','Drift','Brine','Abyss','Echo','Silence','Pearl','Super','Unique'];
 const RCOL={Foam:'#aaccff',Drift:'#44ddff',Brine:'#00cc88',Abyss:'#aa44ff',Echo:'#ffaa00',Silence:'#ff4488',Pearl:'#ffd700',Super:'#ff6600',Unique:'#ee00ff'};
-const MOB_RARS=['Common','Unusual','Rare','Epic','Legendary','Mythic','Ultra'];
-const MOB_RAR_COL={Common:'#cccccc',Unusual:'#44ee44',Rare:'#4499ff',Epic:'#cc44ff',Legendary:'#ffaa00',Mythic:'#ff3333',Ultra:'#00ffee'};
-const MOB_RAR_MUL={Common:1,Unusual:1.6,Rare:2.8,Epic:5,Legendary:9,Mythic:16,Ultra:28};
-// spawn weights [Common,Unusual,Rare,Epic,Legendary,Mythic,Ultra] per zone
-const MOB_RAR_W={open:[58,26,11,4,1,0,0],ravine:[22,32,26,14,5,1,0],volcano:[8,18,28,26,14,5,1]};
+const MOB_RARS=['Unusual','Rare','Epic','Legendary','Mythic','Ultra'];
+const MOB_RAR_COL={Unusual:'#44ee44',Rare:'#4499ff',Epic:'#cc44ff',Legendary:'#ffaa00',Mythic:'#ff3333',Ultra:'#00ffee'};
+const MOB_RAR_MUL={Unusual:1.0,Rare:1.8,Epic:3.2,Legendary:5.5,Mythic:10,Ultra:18};
+// spawn weights [Unusual,Rare,Epic,Legendary,Mythic,Ultra] per zone
+const MOB_RAR_W={open:[62,26,9,2,1,0],ravine:[35,32,22,8,2,1],volcano:[20,30,28,14,6,2]};
 // craft success rates: index = from-rarity (0=Foam→Drift … 7=Super→Unique)
 const CRAFT_RATES=[.50,.38,.25,.15,.08,.04,.02,.01];
 const SLOTS=['Hull','Shield','Cannon','Engine','Reactor','Aura'];
@@ -204,6 +205,15 @@ function pickMobRar(zone){
   const w=MOB_RAR_W[zone]||MOB_RAR_W.open,tot=w.reduce((a,b)=>a+b,0);
   let r=Math.random()*tot;for(let i=0;i<w.length;i++){r-=w[i];if(r<=0)return MOB_RARS[i];}return MOB_RARS[0];
 }
+function clampedRar(rar){
+  if(!player)return rar;
+  const lv=player.lv;
+  const ri2=MOB_RARS.indexOf(rar);
+  // level 1-4: max Unusual; 5-9: max Rare; 10-14: max Epic; 15-19: max Legendary; 20+: uncapped
+  const maxIdx=lv<5?0:lv<10?1:lv<15?2:lv<20?3:MOB_RARS.length-1;
+  if(ri2>maxIdx)return MOB_RARS[maxIdx];
+  return rar;
+}
 function pickMobRarBiased(zone,bias){
   const base=MOB_RAR_W[zone]||MOB_RAR_W.open;
   const w=base.map((v,i)=>{const shift=clamp(i+bias,0,MOB_RARS.length-1);return i<shift?Math.max(0,v-bias*8):v+bias*6;});
@@ -224,6 +234,10 @@ let mobs=[],bullets=[],parts=[],xpOrbs=[],particles=[],minions=[],inkClouds=[],s
 let lvlupTimer=0,fps=60,fpsCount=0,fpsTm=0,lastT=0,spawnTm=2;
 let screenShake={x:0,y:0,mag:0,dur:0};
 let comboState={count:0,timer:0,mult:1};
+const MILESTONES={firstKill:false,firstDrop:false,firstEquip:false,firstLvUp:false,firstCraft:false,reach5:false,reach10:false,reach15:false};
+let milestoneFlash={text:'',timer:0,col:'#ffd700'};
+let shardBonus=0; // % bonus from milestones, stacks
+const SAFE_ZONE_LV=4; // safe zone active until this level
 let zoneState={cur:'open',prev:'open',labelTimer:0};
 let respawnCd=0;
 const BOSS_TYPES=new Set(['Super','Unique','Kraken','Leviathan']);
@@ -320,10 +334,15 @@ class Player{
     if(this.xp>=need){
       this.xp-=need;this.lv++;const old=this.hp;this.recalc();
       this.hp=Math.min(this.st.mhp,old+15);showLvlUp();chat('Level '+this.lv+'!','#ffd700');
+      saveGame();
+      triggerMilestone('firstLvUp','LEVELLED UP!','#ffd700',5);
+      if(this.lv>=5)triggerMilestone('reach5','LEVEL 5!','#ffcc00',10);
+      if(this.lv>=10)triggerMilestone('reach10','LEVEL 10!','#ffaa00',10);
+      if(this.lv>=15)triggerMilestone('reach15','LEVEL 15!','#ff8800',15);
       if(this.lv===15&&!this.clsDone)document.getElementById('cls-panel').style.display='block';
     }
   }
-  gainSh(n){this.sh+=n;}
+  gainSh(n){const bonus=Math.floor(n*shardBonus/100);this.sh+=n+bonus;if(bonus>0)dmgNums.push({x:this.x+rnd(-30,30),y:this.y-40,val:'+'+bonus+'✦',life:1.2,vy:-35,col:'#ffd700',size:9,src:'b'});}
   shoot(tx,ty){
     const now=Date.now(),iv=1000/this.st.rld;if(now-this.lastShot<iv)return;this.lastShot=now;
     const ang=Math.atan2(ty-this.y,tx-this.x),pen=this.cls==='Sting'?1:0;
@@ -345,9 +364,10 @@ class Player{
   die(){
     this.alive=false;respawnCd=5;
     document.getElementById('dstats').textContent='Level '+this.lv+' \u2014 '+this.sh.toLocaleString()+' shards lost';
-    document.getElementById('dead').style.display='flex';this.sh=0;renderLeaderboard();
+    const kept=Math.floor(this.sh*.20);document.getElementById('dead').style.display='flex';this.sh=kept;renderLeaderboard();if(kept>0)addFeed('Kept '+kept.toLocaleString()+' shards (20%)','#aaddff');
+    saveGame();
   }
-  respawn(){this.x=CX;this.y=CY;this.alive=true;this.hp=this.st.mhp;this.vx=0;this.vy=0;this.iframeTimer=1.0;this.hitFlash=0;document.getElementById('dead').style.display='none';}
+  respawn(){this.x=CX;this.y=CY;this.alive=true;this.hp=this.st.mhp;this.vx=0;this.vy=0;this.iframeTimer=this.lv<SAFE_ZONE_LV?4.0:2.0;this.hitFlash=0;this.stunTimer=0;this.paralyzeTimer=0;this.poisonTimer=0;this.blindTimer=0;this.slowTimer=0;document.getElementById('dead').style.display='none';}
   update(dt){
     if(!this.alive)return;
     if(this.iframeTimer>0)this.iframeTimer-=dt;
@@ -422,7 +442,7 @@ class Bullet{
   }
 }
 class Mob{
-  constructor(type,x,y,mobRar='Common'){
+  constructor(type,x,y,mobRar='Unusual'){
     this.type=type;this.cfg=MCFG[type];this.x=x;this.y=y;this.mobRar=mobRar;
     const mul=MOB_RAR_MUL[mobRar]||1;
     this.mhp=Math.floor(this.cfg.hp*mul);this.hp=this.mhp;
@@ -456,8 +476,25 @@ class Mob{
     spawnPtcl(this.x,this.y,this.cfg.c,2);if(this.hp<=0){this.hp=0;this.die(src);}
   }
   die(src){
-    // death pop animation — mark dying, don't remove yet
-    this.dying=true;this.dyingTimer=0.22;this.alive=false;
+    // no dying animation — mob disappears immediately
+    this.dying=false;this.dyingTimer=0;this.alive=false;
+    // kill burst — scale with rarity
+    const rarMul=MOB_RARS.indexOf(this.mobRar)+1;
+    const burstCol=MOB_RAR_COL[this.mobRar]||this.cfg.c;
+    const burstN=8+rarMul*4; // 12 Unusual → 32 Ultra
+    for(let i=0;i<burstN;i++){
+      const a=(i/burstN)*Math.PI*2+Math.random()*.3;
+      const spd=rnd(90,200+rarMul*40);
+      particles.push({x:this.x,y:this.y,c:burstCol,vx:Math.cos(a)*spd,vy:Math.sin(a)*spd,life:rnd(.4,.9+rarMul*.08),ml:1,alive:true});
+    }
+    // white flash ring for Epic+
+    if(rarMul>=3){
+      shockwaves.push({x:this.x,y:this.y,r:0,maxR:40+rarMul*18,life:.28+rarMul*.03,c:'#ffffff'});
+    }
+    // screen flash for Legendary+
+    if(rarMul>=4){
+      screenShake.mag=Math.min(8,2+rarMul);screenShake.dur=0.12;
+    }
     const mul=MOB_RAR_MUL[this.mobRar]||1,xpVal=Math.floor(this.cfg.xp*mul),shVal=Math.floor(this.cfg.sh*mul);
     xpOrbs.push({x:this.x,y:this.y,val:xpVal,c:MOB_RAR_COL[this.mobRar]||this.cfg.c,bob:Math.random()*Math.PI*2,alive:true});
     const isP=(src&&(src.own==='p'||src.own==='m'))||src===player;
@@ -467,14 +504,14 @@ class Mob{
       if(comboState.count>1){comboState.mult=1+Math.floor(comboState.count/2)*.5;comboState.mult=Math.min(comboState.mult,5);}
       const bonus=Math.floor(shVal*(comboState.mult-1));
       player.gainSh(shVal+bonus);
-      const feedMsg=(this.mobRar!=='Common'?this.mobRar+' ':'')+this.type+(bonus?' +'+bonus.toLocaleString()+'':'');
+      const feedMsg=this.mobRar+' '+this.type+(bonus?' +'+bonus.toLocaleString()+'':'');
       addFeed('+'+( shVal+bonus).toLocaleString()+' '+feedMsg, MOB_RAR_COL[this.mobRar]||this.cfg.c);
       if(BOSS_TYPES.has(this.type))screenShake.mag=18;screenShake.dur=.4;
     }
-    if(Math.random()<(MDDROP[this.type]||.3)){
+    if(Math.random()<Math.max(0.75,(MDDROP[this.type]||.3))){
       // higher rarity mobs drop higher rarity parts
       const rarIdx=MOB_RARS.indexOf(this.mobRar),baseRarIdx=RARS.indexOf(MDRARITY[this.type]||'Foam');
-      const dropBonus=[0,1,1,2,3,4,5]; // Common→+0, Unusual→+1, Rare→+1, Epic→+2, Legendary→+3, Mythic→+4, Ultra→+5
+      const dropBonus=[0,0,1,2,3,4]; // Unusual→+0, Rare→+0, Epic→+1, Legendary→+2, Mythic→+3, Ultra→+4
       const dropRarIdx=clamp(baseRarIdx+(dropBonus[rarIdx]||0),0,RARS.length-1);
       spawnDrop(this.x,this.y,{sl:SLOTS[ri(0,SLOTS.length-1)],rar:RARS[dropRarIdx]});
     }
@@ -709,7 +746,7 @@ class Mob{
       if(now-this.lastSpecial>interval){
         this.lastSpecial=now;
         const pool=['Echo','Silence','Pearl','Barracuda','Puffer','MantaRay'];
-        for(let i=0;i<3;i++){const t=pool[ri(0,pool.length-1)];mobs.push(new Mob(t,this.x+rnd(-250,250),this.y+rnd(-250,250),'Common'));}
+        for(let i=0;i<3;i++){const t=pool[ri(0,pool.length-1)];mobs.push(new Mob(t,this.x+rnd(-250,250),this.y+rnd(-250,250),'Unusual'));}
         chat('Leviathan summons minions!','#002244');
       }
     }
@@ -1001,7 +1038,12 @@ function spawnMobs(dt){
     if(mx>=RAVINE.x&&mx<=RAVINE.x+RAVINE.w)mx=Math.random()<.5?RAVINE.x-120:RAVINE.x+RAVINE.w+120;
     mx=clamp(mx,80,WS-80);
   }
-  mobs.push(new Mob(mtype,mx,my,pickMobRarBiased(zk,lvBonus)));
+  // safe zone: keep mobs at least 450px from spawn while player is low level
+  if(player&&player.lv<SAFE_ZONE_LV){
+    const spawnDist=Math.hypot(mx-CX,my-CY);
+    if(spawnDist<450)return;
+  }
+  mobs.push(new Mob(mtype,mx,my,clampedRar(pickMobRarBiased(zk,lvBonus))));
 }
 const obstacles=[];
 function genObs(){
@@ -1486,8 +1528,8 @@ function drawMob(ctx,mob){
     }
     ctx.globalAlpha=1;
   }
-  // rarity badge above health bar - skip Common
-  if(cam.z>0.42&&mri>0){
+  // rarity badge above health bar
+  if(cam.z>0.42){
     const rc=MOB_RAR_COL[mob.mobRar];
     const fs=Math.max(7,Math.floor(8*cam.z));
     ctx.font='bold '+fs+'px monospace';ctx.textAlign='center';ctx.textBaseline='bottom';
@@ -1522,12 +1564,30 @@ function drawMinion(ctx,mn){
   if(mn.ranged){ctx.save();ctx.translate(s.x,s.y);ctx.rotate(mn.ang);ctx.fillStyle='#336699';ctx.fillRect(0,-2.5,14,5);ctx.restore();}
 }
 function drawDrop(ctx,dp){
-  const s=w2s(dp.x,dp.y),bob=Math.sin(Date.now()*.002+dp.bob)*3,r=11*cam.z,col=RCOL[dp.part.rar]||'#aaa';
+  const s=w2s(dp.x,dp.y),bob=Math.sin(Date.now()*.002+dp.bob)*4,r=Math.max(12,14*cam.z),col=RCOL[dp.part.rar]||'#aaa';
   const rarIdx=RARS.indexOf(dp.part.rar);
-  if(rarIdx>=3){const glow=.2+Math.sin(Date.now()*.005+dp.bob)*.12;const gr=r*(1.5+rarIdx*.2);ctx.globalAlpha=glow;ctx.fillStyle=col;ctx.beginPath();ctx.arc(s.x,s.y+bob,gr,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;}
-  px(ctx,s.x,s.y+bob,r,col,'#ffffff');ctx.fillStyle='#000';ctx.font='bold '+Math.floor(8*cam.z)+'px monospace';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(dp.part.sl[0],s.x,s.y+bob);
+  // outer glow ring
+  const pulse=.22+Math.sin(Date.now()*.004+dp.bob)*.1;
+  ctx.globalAlpha=pulse;ctx.strokeStyle=col;ctx.lineWidth=Math.max(1.5,2*cam.z);
+  ctx.beginPath();ctx.arc(s.x,s.y+bob,r*1.65,0,Math.PI*2);ctx.stroke();
+  if(rarIdx>=3){const glowStr=.28+Math.sin(Date.now()*.005+dp.bob)*.12;ctx.globalAlpha=glowStr;ctx.fillStyle=col;ctx.beginPath();ctx.arc(s.x,s.y+bob,r*(1.5+rarIdx*.18),0,Math.PI*2);ctx.fill();}
+  // dashed white clickable ring
+  const dp2=.38+Math.sin(Date.now()*.007+dp.bob)*.14;
+  ctx.globalAlpha=dp2;ctx.strokeStyle='#ffffff';ctx.lineWidth=Math.max(1,cam.z);
+  ctx.setLineDash([4*cam.z,4*cam.z]);ctx.beginPath();ctx.arc(s.x,s.y+bob,r*2.1,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
+  ctx.globalAlpha=1;
+  px(ctx,s.x,s.y+bob,r,col,'#ffffff');ctx.fillStyle='#000';ctx.font='bold '+Math.floor(9*cam.z)+'px monospace';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(dp.part.sl[0],s.x,s.y+bob);
 }
-function drawXPOrb(ctx,orb){const s=w2s(orb.x,orb.y),bob=Math.sin(Date.now()*.003+orb.bob)*3;px(ctx,s.x,s.y+bob,6*cam.z,orb.c,'#ffffff');}
+function drawXPOrb(ctx,orb){
+  const s=w2s(orb.x,orb.y),bob=Math.sin(Date.now()*.003+orb.bob)*3;
+  const r=6*cam.z;
+  // pulse ring
+  const pulse=.28+Math.sin(Date.now()*.005+orb.bob)*.12;
+  ctx.globalAlpha=pulse;ctx.strokeStyle=orb.c;ctx.lineWidth=Math.max(1,1.5*cam.z);
+  ctx.beginPath();ctx.arc(s.x,s.y+bob,r*1.8,0,Math.PI*2);ctx.stroke();
+  ctx.globalAlpha=1;
+  px(ctx,s.x,s.y+bob,r,orb.c,'#ffffff');
+}
 function drawParticles(ctx){for(const p of particles){if(!p.alive)continue;const s=w2s(p.x,p.y);ctx.globalAlpha=p.life/p.ml;ctx.fillStyle=p.c;ctx.fillRect(Math.floor(s.x-2),Math.floor(s.y-2),4,4);}ctx.globalAlpha=1;}
 function drawMinimap(){
   const mc=document.getElementById('minimap').getContext('2d'),mw=110,sc=mw/WS;
@@ -1554,6 +1614,14 @@ function drawAimIndicator(ctx){
   ctx.save();ctx.globalAlpha=.35;ctx.strokeStyle='#ff8844';ctx.lineWidth=1.5;ctx.setLineDash([4,4]);
   ctx.beginPath();ctx.moveTo(ps.x,ps.y);ctx.lineTo(mouse.x,mouse.y);ctx.stroke();ctx.setLineDash([]);
   ctx.globalAlpha=.6;ctx.fillStyle='#ff8844';ctx.beginPath();ctx.arc(mouse.x,mouse.y,6,0,Math.PI*2);ctx.fill();ctx.restore();
+}
+function triggerMilestone(key,text,col,bonus){
+  if(MILESTONES[key])return;
+  MILESTONES[key]=true;
+  shardBonus+=bonus;
+  milestoneFlash={text,timer:2.8,col};
+  addFeed(text+' +'+bonus+'% shard bonus!',col);
+  spawnPtcl(player.x,player.y,col,20);
 }
 function addFeed(msg,col){
   const feed=document.getElementById('feed');if(!feed)return;
@@ -1595,7 +1663,7 @@ function updateBossBar(){
   if(boss&&bDist<1400){
     bar.style.display='block';
     document.getElementById('bossbar-fill').style.width=(boss.hp/boss.mhp*100)+'%';
-    const rarTxt=boss.mobRar!=='Common'?boss.mobRar+' ':'';
+    const rarTxt=boss.mobRar+' ';
     document.getElementById('bossbar-name').textContent=rarTxt+boss.type.toUpperCase()+' — '+Math.ceil(boss.hp).toLocaleString()+' HP';
     const phase2=boss.hp<boss.mhp*.6;
     document.getElementById('bossbar-fill').style.background=phase2?'#ff6600':'#cc2244';
@@ -1704,10 +1772,27 @@ function tryForge(rar,slot){
   if(Math.random()<rate){
     player.bag.push({sl:slot,rar:nextRar});
     chat('Crafted '+nextRar+' '+slot+'!',RCOL[nextRar]||'#fff');
-    spawnPtcl(player.x,player.y,RCOL[nextRar]||'#fff',18);
+    triggerMilestone('firstCraft','FIRST CRAFT!','#ee00ff',10);
+    // craft success explosion — burst of new rarity colour + shockwave
+    const sc=RCOL[nextRar]||'#ffffff';
+    const ri2=RARS.indexOf(nextRar);
+    const burst=16+ri2*4;
+    for(let i=0;i<burst;i++){
+      const a=(i/burst)*Math.PI*2;const spd=rnd(80,160+ri2*25);
+      particles.push({x:player.x,y:player.y,c:sc,vx:Math.cos(a)*spd,vy:Math.sin(a)*spd,life:rnd(.5,1.2),ml:1.2,alive:true});
+    }
+    shockwaves.push({x:player.x,y:player.y,r:0,maxR:80+ri2*30,life:.4,c:sc});
+    screenShake.mag=4+ri2;screenShake.dur=0.18;
+    milestoneFlash.text=nextRar.toUpperCase()+' '+slot.toUpperCase()+' CRAFTED!';milestoneFlash.timer=2.2;milestoneFlash.col=sc;
   } else {
     chat('Craft failed! ('+rar+' '+slot+' — '+Math.round(rate*100)+'% chance)','#ff6644');
-    spawnPtcl(player.x,player.y,'#ff4422',10);
+    // craft failure: harsh red shake + burst
+    screenShake.mag=7;screenShake.dur=0.25;
+    for(let i=0;i<12;i++){
+      const a=Math.random()*Math.PI*2;const spd=rnd(60,140);
+      particles.push({x:player.x,y:player.y,c:'#ff3322',vx:Math.cos(a)*spd,vy:Math.sin(a)*spd,life:rnd(.3,.6),ml:.6,alive:true});
+    }
+    milestoneFlash.text='CRAFT FAILED';milestoneFlash.timer=1.2;milestoneFlash.col='#ff3322';
   }
   if(showCraft)renderCraftUI();
 }
@@ -1729,14 +1814,58 @@ function doRespec(){
 }
 function doRespawn(){if(respawnCd>0)return;player.respawn();}
 function resize(){const gc=document.getElementById('gc');gc.width=Math.floor(window.innerWidth/2);gc.height=Math.floor(window.innerHeight/2);gc.style.width=window.innerWidth+'px';gc.style.height=window.innerHeight+'px';}
+function collectXP(o){
+  if(!o.alive||!player.alive)return false;
+  o.alive=false;
+  player.gainXP(o.val);
+  spawnPtcl(o.x,o.y,o.c,4);
+  return true;
+}
+function collectPart(dp){
+  if(!dp.alive||!player.alive)return false;
+  dp.alive=false;
+  player.bag.push({...dp.part});
+  triggerMilestone('firstDrop','FIRST DROP!','#44ddff',5);
+  const cur=player.eq[dp.part.sl];
+  if(!cur){
+    player.eq[dp.part.sl]=dp.part.rar;player.recalc();
+    chat('Equipped: '+dp.part.rar+' '+dp.part.sl,RCOL[dp.part.rar]);
+    triggerMilestone('firstEquip','FIRST EQUIP!','#ffaa00',5);
+  } else if(RARS.indexOf(dp.part.rar)>RARS.indexOf(cur)){
+    player.eq[dp.part.sl]=dp.part.rar;player.recalc();
+    chat('Upgraded: '+dp.part.rar+' '+dp.part.sl+'!','#ffd700');
+  } else {
+    chat('Got '+dp.part.rar+' '+dp.part.sl,RCOL[dp.part.rar]);
+  }
+  spawnPtcl(dp.x,dp.y,RCOL[dp.part.rar],7);
+  return true;
+}
+// Returns true if a click at canvas coords (cx,cy) picked up something
+function tryPickup(cx,cy){
+  if(!player||!player.alive)return false;
+  const w=s2w(cx,cy);
+  // generous screen-space hit radius so small items are easy to tap
+  const hitR=32/cam.z;
+  // check xp orbs
+  for(const o of xpOrbs){
+    if(!o.alive)continue;
+    if(Math.hypot(o.x-w.x,o.y-w.y)<hitR+8){collectXP(o);return true;}
+  }
+  // check part drops
+  for(const dp of parts){
+    if(!dp.alive)continue;
+    if(Math.hypot(dp.x-w.x,dp.y-w.y)<hitR+10){collectPart(dp);return true;}
+  }
+  return false;
+}
 function setupInput(){
   const gc=document.getElementById('gc');
   gc.addEventListener('mousemove',e=>{mouse.x=e.clientX/2;mouse.y=e.clientY/2;});
-  gc.addEventListener('mousedown',e=>{if(e.button===0)mouse.dn=true;});
+  gc.addEventListener('mousedown',e=>{if(e.button===0){if(!tryPickup(e.clientX/2,e.clientY/2))mouse.dn=true;}});
   gc.addEventListener('mouseup',e=>{if(e.button===0)mouse.dn=false;});
   gc.addEventListener('wheel',e=>{cam.z=clamp(cam.z*(e.deltaY<0?1.12:.89),.32,2.6);e.preventDefault();},{passive:false});
   document.getElementById('chatinput').addEventListener('keydown',e=>{if(e.code==='Enter'){sendChat();e.preventDefault();}if(e.code==='Escape'){closeChat();e.preventDefault();}e.stopPropagation();});
-  const onTS=e=>{e.preventDefault();for(let i=0;i<e.changedTouches.length;i++){const t=e.changedTouches[i],cx=t.clientX/2,cy=t.clientY/2;if(t.clientX<window.innerWidth/2&&JOY.id<0){JOY.active=true;JOY.id=t.identifier;JOY.cx=cx;JOY.cy=cy;JOY.x=cx;JOY.y=cy;JOY.dx=0;JOY.dy=0;}else if(t.clientX>=window.innerWidth/2&&AIM.id<0){AIM.active=true;AIM.id=t.identifier;mouse.x=cx;mouse.y=cy;mouse.dn=true;}}};
+  const onTS=e=>{e.preventDefault();for(let i=0;i<e.changedTouches.length;i++){const t=e.changedTouches[i],cx=t.clientX/2,cy=t.clientY/2;if(t.clientX<window.innerWidth/2&&JOY.id<0){JOY.active=true;JOY.id=t.identifier;JOY.cx=cx;JOY.cy=cy;JOY.x=cx;JOY.y=cy;JOY.dx=0;JOY.dy=0;}else if(t.clientX>=window.innerWidth/2&&AIM.id<0){if(!tryPickup(cx,cy)){AIM.active=true;AIM.id=t.identifier;mouse.x=cx;mouse.y=cy;mouse.dn=true;}}}};
   const onTM=e=>{e.preventDefault();for(let i=0;i<e.changedTouches.length;i++){const t=e.changedTouches[i];if(t.identifier===JOY.id){JOY.x=t.clientX/2;JOY.y=t.clientY/2;const ddx=JOY.x-JOY.cx,ddy=JOY.y-JOY.cy,d=Math.hypot(ddx,ddy),mr=50;if(d>6){JOY.dx=ddx/Math.max(d,mr);JOY.dy=ddy/Math.max(d,mr);}else{JOY.dx=0;JOY.dy=0;}}if(t.identifier===AIM.id){mouse.x=t.clientX/2;mouse.y=t.clientY/2;}}};
   const onTE=e=>{for(let i=0;i<e.changedTouches.length;i++){const t=e.changedTouches[i];if(t.identifier===JOY.id){JOY.active=false;JOY.dx=0;JOY.dy=0;JOY.id=-1;}if(t.identifier===AIM.id){AIM.active=false;mouse.dn=false;AIM.id=-1;}}};
   gc.addEventListener('touchstart',onTS,{passive:false});gc.addEventListener('touchmove',onTM,{passive:false});gc.addEventListener('touchend',onTE);gc.addEventListener('touchcancel',onTE);
@@ -1756,23 +1885,15 @@ function loop(ts){
   mobs=mobs.filter(m=>m.alive||m.dying);
   // screen shake
   if(screenShake.dur>0){screenShake.dur-=dt;screenShake.x=(Math.random()-.5)*screenShake.mag*(screenShake.dur*6);screenShake.y=(Math.random()-.5)*screenShake.mag*(screenShake.dur*6);}else{screenShake.x=0;screenShake.y=0;}
-  updateCombo(dt);updateZoneLabel(dt);updateRespawnCd(dt);updateBossBar();spawnAtmosphere(dt);
+  updateCombo(dt);updateZoneLabel(dt);updateRespawnCd(dt);updateBossBar();spawnAtmosphere(dt);if(milestoneFlash.timer>0)milestoneFlash.timer=Math.max(0,milestoneFlash.timer-0);
+  tickAutoSave(dt);
   for(const o of xpOrbs){if(!o.alive)continue;
-    if(player.alive){
-      const od=dist(o,player);
-      if(od<120){const oa=Math.atan2(player.y-o.y,player.x-o.x);const spd=180+Math.max(0,(120-od)*3);o.x+=Math.cos(oa)*spd*dt;o.y+=Math.sin(oa)*spd*dt;}
-      if(dist2(o,player)<32*32){player.gainXP(o.val);spawnPtcl(o.x,o.y,o.c,3);o.alive=false;}
-    }
+    // no auto-magnet — collected by click/tap or walking very close (touch radius)
+    if(player.alive&&dist2(o,player)<28*28){collectXP(o);}
   }
   for(const dp of parts){
     if(!dp.alive)continue;dp.life-=dt;if(dp.life<=0){dp.alive=false;continue;}
-    if(player.alive&&dist2(dp,player)<48*48){
-      player.bag.push({...dp.part});const cur=player.eq[dp.part.sl];
-      if(!cur){player.eq[dp.part.sl]=dp.part.rar;player.recalc();chat('Auto-equip: '+dp.part.rar+' '+dp.part.sl,RCOL[dp.part.rar]);}
-      else if(RARS.indexOf(dp.part.rar)>RARS.indexOf(cur)){player.eq[dp.part.sl]=dp.part.rar;player.recalc();chat('Upgraded: '+dp.part.rar+' '+dp.part.sl+'!','#ffd700');}
-      else chat('Got '+dp.part.rar+' '+dp.part.sl,RCOL[dp.part.rar]);
-      spawnPtcl(dp.x,dp.y,RCOL[dp.part.rar],7);dp.alive=false;
-    }
+    if(player.alive&&dist2(dp,player)<28*28){collectPart(dp);}
   }
   bullets=bullets.filter(b=>b.alive);particles=particles.filter(p=>p.alive);xpOrbs=xpOrbs.filter(o=>o.alive);parts=parts.filter(d=>d.alive);
   for(const ic of inkClouds){ic.life-=dt;if(player.alive&&dist(player,ic)<ic.r)player.slowTimer=Math.max(player.slowTimer,.3);}
@@ -1811,6 +1932,35 @@ function loop(ts){
   ctx.textAlign='center';ctx.textBaseline='middle';
   for(const n of dmgNums){const ns=w2s(n.x,n.y);ctx.globalAlpha=Math.max(0,n.life);ctx.font='bold '+Math.floor(n.size*cam.z)+'px monospace';ctx.fillStyle=n.col;ctx.fillText(n.val,Math.floor(ns.x),Math.floor(ns.y));}
   ctx.globalAlpha=1;
+  // milestone flash overlay
+  if(milestoneFlash.timer>0){
+    milestoneFlash.timer-=dt;
+    const t=milestoneFlash.timer;
+    const alpha=t>2?Math.min(1,(2.8-t)*3):Math.min(1,t*1.5);
+    ctx.save();ctx.globalAlpha=alpha*.75;
+    ctx.fillStyle=milestoneFlash.col;
+    const mfs=Math.max(14,Math.floor(22*cam.z*.8));
+    ctx.font='bold '+mfs+'px monospace';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fillRect(gc.width/2-160,gc.height*.38-mfs,320,mfs*2.2);
+    ctx.fillStyle=milestoneFlash.col;ctx.fillText(milestoneFlash.text,gc.width/2,gc.height*.38);
+    ctx.globalAlpha=Math.min(.3,alpha*.25);
+    ctx.fillStyle=milestoneFlash.col;ctx.fillRect(0,0,gc.width,gc.height);
+    ctx.restore();
+  }
+  // shard bonus indicator (top of screen when active)
+  if(shardBonus>0){
+    ctx.save();ctx.globalAlpha=.6;ctx.fillStyle='rgba(0,0,0,.45)';ctx.fillRect(gc.width/2-55,2,110,14);
+    ctx.fillStyle='#ffd700';ctx.font='bold '+Math.floor(9*cam.z*.7+6)+'px monospace';ctx.textAlign='center';ctx.textBaseline='top';
+    ctx.fillText('+'+shardBonus+'% shard bonus',gc.width/2,4);ctx.restore();
+  }
+  // safe zone ring
+  if(player.alive&&player.lv<SAFE_ZONE_LV){
+    const ss=w2s(CX,CY),sp=450*cam.z;
+    ctx.save();ctx.globalAlpha=.08+Math.sin(Date.now()*.001)*.04;
+    ctx.strokeStyle='#44ddff';ctx.lineWidth=Math.max(1,2*cam.z);ctx.setLineDash([8*cam.z,6*cam.z]);
+    ctx.beginPath();ctx.arc(ss.x,ss.y,sp,0,Math.PI*2);ctx.stroke();
+    ctx.setLineDash([]);ctx.restore();
+  }
   // poison overlay
   if(player.alive&&player.poisonTimer>0){const ps=w2s(player.x,player.y),br=17*cam.z;ctx.globalAlpha=.28+Math.sin(Date.now()*.01)*.1;ctx.fillStyle='#44ff88';ctx.beginPath();ctx.arc(ps.x,ps.y,br*1.25,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;}
   // blind overlay
@@ -1838,10 +1988,49 @@ function spawnAtmosphere(dt){
     }
   }
 }
+const SAVE_KEY='bubblearena_save';
+function saveGame(){
+  if(!player)return;
+  try{
+    localStorage.setItem(SAVE_KEY,JSON.stringify({
+      lv:player.lv,xp:player.xp,sh:player.sh,hp:player.hp,
+      eq:player.eq,bag:player.bag,cls:player.cls,clsDone:player.clsDone,
+      milestones:Object.assign({},MILESTONES),shardBonus,
+      savedAt:Date.now()
+    }));
+  }catch(e){}
+}
+function loadGame(){
+  try{
+    const raw=localStorage.getItem(SAVE_KEY);
+    if(!raw)return false;
+    const d=JSON.parse(raw);
+    player.lv=d.lv||1;player.xp=d.xp||0;player.sh=d.sh||0;
+    player.eq=d.eq||{Hull:null,Shield:null,Cannon:null,Engine:null,Reactor:null,Aura:null};
+    player.bag=d.bag||[];player.cls=d.cls||null;player.clsDone=d.clsDone||false;
+    if(d.milestones)Object.assign(MILESTONES,d.milestones);
+    if(d.shardBonus)shardBonus=d.shardBonus;
+    player.recalc();player.hp=Math.min(player.st.mhp,d.hp||player.st.mhp);
+    if(player.cls==='Cloud'){minions=[];for(let i=0;i<4;i++)minions.push(new Minion(player.x,player.y,i<2,i));}
+    if(player.clsDone)document.getElementById('brsp').style.display='block';
+    const age=Math.round((Date.now()-(d.savedAt||0))/60000);
+    chat('Save loaded — Level '+player.lv+' ('+(age<1?'just now':age+'m ago')+')\u2713','#44ee44');
+    return true;
+  }catch(e){return false;}
+}
+function deleteSave(){localStorage.removeItem(SAVE_KEY);chat('Save deleted.','#ff4444');}
+let autoSaveTm=0;
+function tickAutoSave(dt){autoSaveTm-=dt;if(autoSaveTm<=0){autoSaveTm=10;saveGame();}}
 function init(){
   resize();window.addEventListener('resize',resize);setupInput();player=new Player();initBots();genObs();renderLeaderboard();
+  // load save or give starter part to fresh players
+  const hasSave=loadGame();
+  if(!hasSave){
+    const starterSlot=SLOTS[ri(0,SLOTS.length-1)];
+    player.eq[starterSlot]='Unusual';player.bag.push({sl:starterSlot,rar:'Unusual'});player.recalc();player.hp=player.st.mhp;
+  }
   const starts=['Foam','Foam','Foam','Drift','Drift','Puffer','Barracuda'];
-  for(let i=0;i<22;i++){const t=starts[ri(0,starts.length-1)],a=Math.random()*Math.PI*2,d=rnd(280,900);mobs.push(new Mob(t,CX+Math.cos(a)*d,CY+Math.sin(a)*d,pickMobRar('open')));}
+  for(let i=0;i<22;i++){const t=starts[ri(0,starts.length-1)],a=Math.random()*Math.PI*2,d=rnd(500,900);mobs.push(new Mob(t,CX+Math.cos(a)*d,CY+Math.sin(a)*d,'Unusual'));}
   setInterval(updateBots,5000);
   chat('Welcome to bubblearena!','#5aaeff');
   if(isMobile){chat('Left side: joystick','#446688');chat('Right side: drag to aim+shoot','#446688');autoShoot=true;document.getElementById('bas').classList.add('on');}
