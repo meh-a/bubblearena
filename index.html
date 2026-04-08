@@ -158,12 +158,12 @@ const MCFG={
   Brine:    {t:2,hp:280,  atk:30, def:7,  spd:40, xp:160,   sh:12,     r:15,c:'#00cc88',o:'#008855'},
   Abyss:    {t:3,hp:700,  atk:58, def:18, spd:38, xp:500,   sh:30,     r:17,c:'#aa44ff',o:'#7722cc'},
   Echo:     {t:4,hp:1800, atk:115,def:42, spd:44, xp:1600,  sh:75,     r:19,c:'#ffaa00',o:'#cc7700'},
-  Silence:  {t:5,hp:4500, atk:230,def:85, spd:34, xp:3500,  sh:180,    r:21,c:'#ff4488',o:'#cc1155'},
-  Pearl:    {t:6,hp:12000,atk:480,def:190,spd:30, xp:9000,  sh:450,    r:23,c:'#ffd700',o:'#cc9900'},
-  Super:    {t:7,hp:11000,atk:380,def:120,spd:48, xp:55000, sh:1200,   r:30,c:'#ff6600',o:'#cc4400',sp:'boss'},
-  Unique:   {t:8,hp:60000,atk:850,def:340,spd:38, xp:306340,sh:100000, r:38,c:'#ee00ff',o:'#aa00cc',sp:'unique'},
+  Silence:  {t:5,hp:4500, atk:230,def:45, spd:34, xp:3500,  sh:180,    r:21,c:'#ff4488',o:'#cc1155'},
+  Pearl:    {t:6,hp:12000,atk:480,def:95, spd:30, xp:9000,  sh:450,    r:23,c:'#ffd700',o:'#cc9900'},
+  Super:    {t:7,hp:11000,atk:380,def:60, spd:48, xp:55000, sh:1200,   r:30,c:'#ff6600',o:'#cc4400',sp:'boss'},
+  Unique:   {t:8,hp:38000,atk:720,def:155,spd:38, xp:306340,sh:100000, r:38,c:'#ee00ff',o:'#aa00cc',sp:'unique'},
   Puffer:   {t:1,hp:110,  atk:18, def:4,  spd:28, xp:80,    sh:8,      r:17,c:'#88ffaa',o:'#44bb66',sp:'rng'},
-  Barracuda:{t:1,hp:80,   atk:32, def:1,  spd:105,xp:70,    sh:7,      r:9, c:'#66aaff',o:'#3366cc',sp:'rush'},
+  Barracuda:{t:1,hp:80,   atk:22, def:1,  spd:105,xp:70,    sh:7,      r:9, c:'#66aaff',o:'#3366cc',sp:'rush'},
   Bubble:    {t:0,hp:25,   atk:4,  def:0,  spd:28, xp:10,    sh:1,      r:9, c:'#cce8ff',o:'#88aabb',sp:'bubble',noShoot:true},
   Plankton:  {t:0,hp:18,   atk:2,  def:0,  spd:30, xp:8,     sh:1,      r:6, c:'#aaffaa',o:'#55bb55',sp:'plankton',noShoot:true},
   Jellyfish: {t:1,hp:85,   atk:22, def:1,  spd:30, xp:60,    sh:6,      r:14,c:'#dd88ff',o:'#9944cc',sp:'jellyfish',noShoot:true},
@@ -171,19 +171,19 @@ const MCFG={
   Clownfish: {t:2,hp:180,  atk:22, def:3,  spd:75, xp:100,   sh:10,     r:11,c:'#ff6633',o:'#cc3300',sp:'clownfish'},
   Seahorse:  {t:2,hp:260,  atk:25, def:5,  spd:25, xp:140,   sh:11,     r:14,c:'#ffaadd',o:'#cc6688',sp:'seahorse'},
   SeaTurtle: {t:2,hp:450,  atk:35, def:20, spd:22, xp:155,   sh:13,     r:18,c:'#558844',o:'#336622',sp:'turtle',noShoot:true},
-  Anglerfish:{t:3,hp:650,  atk:95, def:15, spd:42, xp:480,   sh:28,     r:17,c:'#334455',o:'#112233',sp:'angler',noShoot:true},
-  MantisShrimp:{t:3,hp:600,atk:150,def:10, spd:55, xp:520,   sh:32,     r:14,c:'#ff4488',o:'#cc1155',sp:'mantis',noShoot:true},
+  Anglerfish:{t:3,hp:650,  atk:68, def:15, spd:42, xp:480,   sh:28,     r:17,c:'#334455',o:'#112233',sp:'angler',noShoot:true},
+  MantisShrimp:{t:3,hp:600,atk:82, def:10, spd:55, xp:520,   sh:32,     r:14,c:'#ff4488',o:'#cc1155',sp:'mantis',noShoot:true},
   Starfish:  {t:3,hp:580,  atk:40, def:8,  spd:28, xp:460,   sh:26,     r:18,c:'#ff8833',o:'#cc5511',sp:'starfish',noShoot:true},
   Squid:     {t:4,hp:1600, atk:100,def:35, spd:52, xp:1500,  sh:70,     r:18,c:'#2255aa',o:'#112266',sp:'squid'},
   MantaRay:  {t:4,hp:1700, atk:110,def:40, spd:65, xp:1550,  sh:72,     r:20,c:'#4466cc',o:'#223388',sp:'manta',noShoot:true},
-  Hammerhead:{t:4,hp:1900, atk:130,def:45, spd:48, xp:1600,  sh:75,     r:19,c:'#778899',o:'#445566',sp:'hammer',noShoot:true},
-  ElectricEel:{t:5,hp:4000,atk:200,def:70, spd:42, xp:3200,  sh:160,    r:18,c:'#88ffcc',o:'#22cc88',sp:'eel'},
-  Nautilus:  {t:5,hp:5000, atk:220,def:100,spd:28, xp:3600,  sh:185,    r:22,c:'#cc9966',o:'#886633',sp:'nautilus'},
-  Whale:     {t:5,hp:7000, atk:180,def:75, spd:26, xp:3800,  sh:195,    r:32,c:'#336688',o:'#224455',sp:'whale',noShoot:true},
-  GiantClam: {t:6,hp:10000,atk:420,def:160,spd:0,  xp:8000,  sh:400,    r:26,c:'#eeddaa',o:'#bbaa77',sp:'clam'},
-  Viperfish: {t:6,hp:11000,atk:460,def:180,spd:48, xp:8500,  sh:430,    r:20,c:'#223322',o:'#111a11',sp:'viper',noShoot:true},
-  Kraken:    {t:7,hp:18000,atk:450,def:150,spd:35, xp:75000, sh:1500,   r:35,c:'#220033',o:'#110022',sp:'kraken'},
-  Leviathan: {t:8,hp:90000,atk:950,def:380,spd:28, xp:350000,sh:120000, r:50,c:'#002244',o:'#001122',sp:'leviathan'}
+  Hammerhead:{t:4,hp:1900, atk:108,def:45, spd:48, xp:1600,  sh:75,     r:19,c:'#778899',o:'#445566',sp:'hammer',noShoot:true},
+  ElectricEel:{t:5,hp:4000,atk:200,def:44, spd:42, xp:3200,  sh:160,    r:18,c:'#88ffcc',o:'#22cc88',sp:'eel'},
+  Nautilus:  {t:5,hp:5000, atk:220,def:52,spd:28, xp:3600,  sh:185,    r:22,c:'#cc9966',o:'#886633',sp:'nautilus'},
+  Whale:     {t:5,hp:7000, atk:180,def:48, spd:26, xp:3800,  sh:195,    r:32,c:'#336688',o:'#224455',sp:'whale',noShoot:true},
+  GiantClam: {t:6,hp:10000,atk:420,def:80,spd:0,  xp:8000,  sh:400,    r:26,c:'#eeddaa',o:'#bbaa77',sp:'clam'},
+  Viperfish: {t:6,hp:11000,atk:460,def:90,spd:48, xp:8500,  sh:430,    r:20,c:'#223322',o:'#111a11',sp:'viper',noShoot:true},
+  Kraken:    {t:7,hp:18000,atk:450,def:75, spd:35, xp:75000, sh:1500,   r:35,c:'#220033',o:'#110022',sp:'kraken'},
+  Leviathan: {t:8,hp:55000,atk:850,def:200,spd:28, xp:350000,sh:120000, r:50,c:'#002244',o:'#001122',sp:'leviathan'}
 };
 const MDRARITY={Foam:'Foam',Drift:'Drift',Brine:'Brine',Abyss:'Abyss',Echo:'Echo',Silence:'Silence',Pearl:'Pearl',Super:'Super',Unique:'Unique',Puffer:'Drift',Barracuda:'Drift',Bubble:'Foam',Plankton:'Foam',Jellyfish:'Drift',Crab:'Drift',Clownfish:'Brine',Seahorse:'Brine',SeaTurtle:'Brine',Anglerfish:'Abyss',MantisShrimp:'Abyss',Starfish:'Abyss',Squid:'Echo',MantaRay:'Echo',Hammerhead:'Echo',ElectricEel:'Silence',Nautilus:'Silence',Whale:'Silence',GiantClam:'Pearl',Viperfish:'Pearl',Kraken:'Super',Leviathan:'Unique'};
 const MDDROP={Foam:.55,Drift:.60,Brine:.65,Abyss:.68,Echo:.72,Silence:.75,Pearl:.85,Super:.95,Unique:1.0,Puffer:.60,Barracuda:.55,Bubble:.22,Plankton:.18,Jellyfish:.58,Crab:.60,Clownfish:.62,Seahorse:.64,SeaTurtle:.68,Anglerfish:.65,MantisShrimp:.68,Starfish:.62,Squid:.70,MantaRay:.70,Hammerhead:.72,ElectricEel:.75,Nautilus:.76,Whale:.80,GiantClam:.85,Viperfish:.84,Kraken:.95,Leviathan:1.0};
@@ -846,7 +846,7 @@ class Mob{
       this.x+=this.punchVx*dt;this.y+=this.punchVy*dt;
       const now=Date.now();
       if(pd<28&&now-this.lastMel>1200){
-        this.lastMel=now;player.hit(this.atk*2.2);
+        this.lastMel=now;player.hit(this.atk*1.8);
         shockwaves.push({x:this.x,y:this.y,r:0,maxR:90,life:0.4,c:this.cfg.c});
         spawnPtcl(this.x,this.y,this.cfg.c,14);this._punchLanded=true;
       }
