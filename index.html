@@ -193,7 +193,9 @@ const ZONES={
   volcano:[{t:'Echo',w:16},{t:'Silence',w:14},{t:'Pearl',w:10},{t:'Abyss',w:8},{t:'Super',w:6},{t:'Barracuda',w:6},{t:'ElectricEel',w:8},{t:'Nautilus',w:7},{t:'Whale',w:4},{t:'GiantClam',w:5},{t:'Viperfish',w:5},{t:'Kraken',w:2}]
 };
 const ZONE_CAPS={open:45,ravine:18,volcano:10};
-function xpReq(lv){return 200*lv*lv + 100*lv}
+function xpReq(lv){
+  return 150 * Math.pow(lv, 1.5);
+}
 function dmg(raw,def,pvp){return pvp?Math.max(1,raw-def):Math.max(0,raw-def)}
 function dist2(a,b){return(a.x-b.x)**2+(a.y-b.y)**2}
 function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y)}
