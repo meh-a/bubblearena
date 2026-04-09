@@ -194,7 +194,7 @@ const ZONES={
 };
 const ZONE_CAPS={open:45,ravine:18,volcano:10};
 function xpReq(lv){
-  return floor(150 * Math.pow(lv, 1.5));
+  return Math.floor(150 * Math.pow(lv, 1.5));
 }
 function dmg(raw,def,pvp){return pvp?Math.max(1,raw-def):Math.max(0,raw-def)}
 function dist2(a,b){return(a.x-b.x)**2+(a.y-b.y)**2}
