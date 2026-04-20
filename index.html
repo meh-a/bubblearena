@@ -326,7 +326,7 @@ class Player{
     }
     this.bRange=340;this.bSpd=290;this.bCnt=1;this.bSpread=0;this.conDmg=0;
     if(this.cls==='Sting'){atk*=1.65;rld*=.48;this.bRange=580;this.bSpd=440;}
-    else if(this.cls==='Spray'){rld*=3.2;atk*=.38;this.bRange=210;this.bSpd=240;this.bCnt=3;this.bSpread=.22;}
+    else if(this.cls==='Spray'){rld*=3.2;atk*=1.4;this.bRange=210;this.bSpd=240;this.bCnt=3;this.bSpread=.22;}
     else if(this.cls==='Tide'){mhp*=1.55;def*=1.6;atk*=.28;this.conDmg=atk*3.5;this.bRange=120;this.bSpd=180;}
     else if(this.cls==='Cloud'){atk*=.58;spd*=.82;}
     this.st={mhp:Math.floor(mhp),atk:+(atk.toFixed(1)),def:+(def.toFixed(1)),spd,rld,heal};
